@@ -1,13 +1,12 @@
-import logging
+import logging.config
 import random
-
 
 from .item import Item
 from .user import User
 from src.request.api import api_post
 from docs.conf import module_data, play_course
 
-logger = logging.getLogger()
+logging.config.fileConfig('logging.conf')
 
 
 class Joker():
@@ -31,6 +30,8 @@ class Joker():
                 self.user_add_system_open("user_add_system_open")
                 self.joker_query(name=name)
                 return True
+            else:
+                self.logger.error("joker_query error statue {}".format(text))
             return False
         self.game_data.update(text)
         return True
@@ -43,7 +44,7 @@ class Joker():
         joker_play = getattr(self, _name)
         if self.game_data["state"] == 0:
             data = joker_play.get("data")
-            if self.special_chapter[1] and self.special_chapter[2]:
+            if (self.special_chapter[1] and self.special_chapter[2]) or self.game_data["cur_chapter"] == self.game_data["total_chapter"]:
                 data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 1})
                 status, text = api_post(joker_play.get("url"), data)
                 return True
@@ -57,7 +58,7 @@ class Joker():
             return True
         elif self.game_data["state"] == 1:
             data = joker_play.get("data")
-            if self.special_chapter[1] and self.special_chapter[2]:
+            if self.special_chapter[1] and self.special_chapter[2] or self.game_data["cur_chapter"] == self.game_data["total_chapter"]:
                 data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 3})
                 status, text = api_post(joker_play.get("url"), data)
                 return True
@@ -71,7 +72,7 @@ class Joker():
             return True
         elif self.game_data["state"] == 2:
             data = joker_play.get("data")
-            if self.special_chapter[1] and self.special_chapter[2]:
+            if self.special_chapter[1] and self.special_chapter[2] or self.game_data["cur_chapter"] == self.game_data["total_chapter"]:
                 data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 2})
                 status, text = api_post(joker_play.get("url"), data)
                 return True
@@ -112,11 +113,18 @@ class Joker():
         result = User.user_system_open(data.get("url"), data.get("data"))
         if result:
             return True
+        return False
 
     def run(self):
+        self.logger = logging.getLogger(name=Joker.module_name)
         for func_name in self.joker_data:
             func = getattr(self, func_name)
             if func is not None:
-                if not func(func_name):
-                    logger.error("{} test error".format(func_name))
+                try:
+                    result = func(func_name)
+                    if not result:
+                        self.logger.info("{} run error".format(func_name))
+                        return
+                except Exception as e:
+                    self.logger.error(e)
                     return
