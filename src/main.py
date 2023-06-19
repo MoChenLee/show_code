@@ -1,3 +1,4 @@
+from docs.conf import Config
 from module import *
 import logging.config
 
@@ -17,9 +18,12 @@ class slots_test():
 
     def run(self):
         for func in self.supported_module:
-            # print("{} start test".format(func.module_name))
             logger.info("{} start test".format(func.module_name))
-            p = func()
+            config = Config.get(func.module_name, None)
+            if not config:
+                logger.error("{} is no configuration file".format(func.module_name))
+                continue
+            p = func(**config)
             p.run()
             logger.info("{} test Success".format(func.module_name))
             # print("{} test Success".format(func.module_name))
