@@ -15,9 +15,6 @@ def api_post(url, data):
     response = requests.post(url=real_url, data=json.dumps(data), headers=headers)
     if response.status_code == 200:
         result = json.loads(response.text)
-        if result.get("meta").get('code') == 200:
-            return True, result.get("data")
-        else:
-            return False, result.get("meta").get('code')
+        return True, result.get("meta").get('code'), result.get("data")
     else:
-        return False, json.loads(response.text)
+        return False, response.status_code, json.loads(response.text)

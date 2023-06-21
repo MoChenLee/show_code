@@ -2,10 +2,7 @@ import logging.config
 import random
 
 from .base import BaseService
-from .item import Item
-from .user import User
-from src.request.api import api_post
-from docs.conf import module_data, play_course
+from src.libs.decorator_result import format_validation
 
 logging.config.fileConfig('logging.conf')
 
@@ -19,112 +16,84 @@ class Joker(BaseService):
         self.__dict__.update(**kwargs)
         self.game_data = {}
         self.special_chapter = {1: 0, 2: 0}  # 怪兽和特殊
+        self.over = False
 
-    def joker_query(self, name="joker_query"):
-        _name = name + "_"
-        if not hasattr(self, _name):
-            setattr(self, _name, play_course.get(name, {}))
-        joker_query = getattr(self, _name)
-        data = joker_query.get("data")
-        data.update({"instance_id": self.instance_id})
-        status, text = api_post(joker_query.get("url"), data)
-        if not status:
-            if text == 12000:
-                self.user_add_system_open("user_add_system_open")
-                self.joker_query(name=name)
-                return True
-            else:
-                self.logger.error("joker_query error statue {}".format(text))
-            return False
-        self.game_data.update(text)
-        return True
-
-    # 11002
-    def joker_play(self, name="joker_play"):
-        _name = name + "_"
-        if not hasattr(self, _name):
-            setattr(self, _name, play_course.get(name, {}))
-        joker_play = getattr(self, _name)
+    def joker_play(self):
+        joker_play = self.correct["parameter"]["joker_play"]
+        joker_play_result = self.correct["result"]["joker_play"]
         if self.game_data["state"] == 0:
-            data = joker_play.get("data")
             if (self.special_chapter[1] and self.special_chapter[2]) or self.game_data["cur_chapter"] == self.game_data[
-                "total_chapter"]:
-                data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 1})
-                status, text = api_post(joker_play.get("url"), data)
-                return True
-
+                "total_chapter"] or self.over:
+                joker_play["data"].update({"pick_index": random.randint(1, 4), "type": 1})
+                self.request_api("joker_play", joker_play, joker_play_result, processing=True)
+                self.over = True
+                return False
             else:
-                data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 0})
-                status, text = api_post(joker_play.get("url"), data)
-                if status:
-                    self.game_data.update(text)
-                    self.joker_play(name=name)
+                joker_play["data"].update({"pick_index": random.randint(1, 4), "type": 0})
+                self.request_api("joker_play", joker_play, joker_play_result, processing=True)
             return True
         elif self.game_data["state"] == 1:
-            data = joker_play.get("data")
             if self.special_chapter[1] and self.special_chapter[2] or self.game_data["cur_chapter"] == self.game_data[
-                "total_chapter"]:
-                data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 3})
-                status, text = api_post(joker_play.get("url"), data)
-                return True
+                "total_chapter"] or self.over:
+                joker_play["data"].update({"pick_index": random.randint(1, 4), "type": 3})
+                self.request_api("joker_play", joker_play, joker_play_result, processing=True)
+                self.over = True
+                return False
             else:
-                data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 4})
-                status, text = api_post(joker_play.get("url"), data)
+                joker_play["data"].update({"pick_index": random.randint(1, 4), "type": 5})
+                self.request_api("joker_play", joker_play, joker_play_result, processing=True)
                 self.special_chapter[1] = 1
-                if status:
-                    self.game_data.update(text)
-                    self.joker_play(name=name)
             return True
         elif self.game_data["state"] == 2:
-            data = joker_play.get("data")
             if self.special_chapter[1] and self.special_chapter[2] or self.game_data["cur_chapter"] == self.game_data[
-                "total_chapter"]:
-                data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 2})
-                status, text = api_post(joker_play.get("url"), data)
-                return True
+                "total_chapter"] or self.over:
+                joker_play["data"].update({"pick_index": random.randint(1, 4), "type": 2})
+                self.request_api("joker_play", joker_play, joker_play_result, processing=True)
+                self.over = True
+                return False
             else:
-                data.update({"pick_index": random.randint(1, 4), "instance_id": self.instance_id, "type": 0})
-                status, text = api_post(joker_play.get("url"), data)
+                joker_play["data"].update({"pick_index": random.randint(1, 4), "type": 4})
+                self.request_api("joker_play", joker_play, joker_play_result, processing=True)
                 self.special_chapter[2] = 1
-                if status:
-                    self.game_data.update(text)
-                    self.joker_play(name=name)
             return True
 
-    def joker_loop(self, name):
-        number = play_course.get(name, {}).get("number", 0)
-        if number == 0:
-            while True:
-                if self.joker_play():
-                    return
+    def joker_loop(self):
+        number = 10
+        while number > 0:
+            if not self.joker_play():
+                return
+            number -= 1
+        if not self.over:
+            self.over = True
+            self.joker_play()
 
-    def item_instanceid(self, name):
-        instance_data = play_course.get(name, {})
-        data = instance_data.get("data")
-        data.update({"item_id": 1113005})
-        result = User.user_item_instance(instance_data.get("url"), data)
-        if result[0]:
-            setattr(self, "instance_id", result[1])
-            return True
-        return False
+    def handle_item(self):
+        if not self.item_instanceid({"item_id": 1113005}):
+            self.add_item({"item_id": 1113005, "number": 1})
+            self.item_instanceid({"item_id": 1113005})
+            if not getattr(self, "instance_id"):
+                self.logger.error("add_item and item_instanceid error!")
+                return False
+        self.data.update({"instance_id": self.instance_id})
+        return True
 
-    def user_add_system_open(self, name):
-        data = play_course.get(name, {})
-        result = User.user_system_open(data.get("url"), data.get("data"))
-        if result:
-            return True
-        return False
+    @format_validation
+    def request_api(self, *args, **kwargs):
+        ok = kwargs.get("processing", False)
+        if ok:
+            data = kwargs.get("result", {})
+            if "instance_id" in data and data["instance_id"] != "":
+                setattr(self, "instance_id", data["instance_id"])
+                return
+            self.game_data.update(data)
 
-    def run(self):
-        self.add_item({"item_id": 1113005, "number": 1})
-        for func_name in self.joker_data:
-            func = getattr(self, func_name)
-            if func is not None:
-                try:
-                    result = func(func_name)
-                    if not result:
-                        self.logger.info("{} run error".format(func_name))
-                        return
-                except Exception as e:
-                    self.logger.error(e)
-                    return
+    def process(self):
+        for k, v in self.error["parameter"].items():
+            if k in self.error["result"]:
+                self.request_api(k, v, self.error["result"][k], processing=False)
+        if not self.handle_item():
+            return
+        for k, v in self.correct["parameter"].items():
+            if k in self.correct["result"]:
+                self.request_api(k, v, self.correct["result"][k], processing=True)
+        self.joker_loop()

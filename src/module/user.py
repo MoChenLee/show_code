@@ -6,11 +6,13 @@ class User():
     @staticmethod
     def user_item_instance(url, data):
         if dict_contain(["mid", "item_id"], data):
-            status, text = api_post(url, data)
-            return status, text.get("instance_id")
+            ok, status, text = api_post(url, data)
+            if status == 200:
+                return ok, text.get("instance_id")
+            return False, ""
 
     @staticmethod
     def user_system_open(url, data):
         if dict_contain(["state"], data):
-            status, text = api_post(url, data)
-            return status
+            ok, status, text = api_post(url, data)
+            return ok

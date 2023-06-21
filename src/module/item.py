@@ -7,11 +7,11 @@ class Item():
     @staticmethod
     def add_item(url, data):
         if dict_contain(["mid", "item_id", "number"], data):
-            status, text = api_post(url, data)
-            return status
+            ok, status, text = api_post(url, data)
+            return ok
 
     @staticmethod
     def del_item(url, data):
         if dict_contain(["mid", "item_id"], data):
-            status, text = api_post(url, data)
-            return status
+            ok, status, text = api_post(url, data)
+            return ok
