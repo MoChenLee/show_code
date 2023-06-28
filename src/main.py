@@ -1,4 +1,4 @@
-from docs.conf import Config
+from docs.conf import Config, Premise_config
 from module import *
 import logging.config
 
@@ -24,9 +24,11 @@ class slots_test():
                 logger.error("{} is no configuration file".format(func.module_name))
                 continue
             p = func(**config)
+            condition = Premise_config.get(func.module_name, None)
+            if condition:
+                p.condition = condition
             p.run()
             logger.info("{} test Success".format(func.module_name))
-            # print("{} test Success".format(func.module_name))
 
 
 if __name__ == '__main__':

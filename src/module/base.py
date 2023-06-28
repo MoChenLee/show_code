@@ -1,6 +1,8 @@
-from docs.conf import Config
 from src.libs.decorator_result import format_validation
 import logging.config
+
+from src.module.user import User
+
 logging.config.fileConfig('logging.conf')
 logger = logging.getLogger()
 
@@ -8,27 +10,7 @@ logger = logging.getLogger()
 class BaseService():
     def __init__(self):
         self.data = {"mid": "82466", "app_id": 703, "source": "test"}
-
-    def add_item(self, item):
-        item_data = Config.get("Item", {}).get("correct", {})
-        if not item_data:
-            logger.error("add_item is no configuration file")
-            return
-        data = item_data.get("parameter").get("add_item")
-        self.data.update(item)
-        self.request_api("add_item", data, item_data.get("result").get("add_item", {}))
-
-    def item_instanceid(self, item):
-        instance_data = Config.get("User", {}).get("correct", {})
-        if not instance_data:
-            logger.error("item_instanceid is no configuration file")
-            return
-        data = instance_data.get("parameter").get("item_instanceid")
-        self.data.update(item)
-        self.request_api("item_instanceid", data, instance_data.get("result").get("item_instanceid"), processing=True)
-        if getattr(self, "instance_id", None):
-            return True
-        return False
+        self.condition = None
 
     @format_validation
     def request_api(self, *args, **kwargs):
@@ -37,12 +19,35 @@ class BaseService():
             pass
 
     def process(self):
-        for k, v in self.error["parameter"].items():
-            if k in self.error["result"]:
-                self.request_api(k, v, self.error["result"][k], processing=False)
-        for k, v in self.correct["parameter"].items():
-            if k in self.correct["result"]:
-                self.request_api(k, v, self.correct["result"][k], processing=True)
+        if self.condition:
+            for key, condition in self.condition.items():
+                self.user = User()
+                if condition:
+                    if "user" in condition:
+                        self.user.update(condition["user"])
+                        self.data = self.user.user_data
+                    if "system_open" in condition:
+                        self.user.handle_system_open(condition["system_open"])
+                    if "add_item" in condition:
+                        instance_id = self.user.add_item(condition["add_item"])
+                        if instance_id != "":
+                            self.data.update({"instance_id": instance_id})
+                    # TODO:其它的初始条件
+                classification = getattr(self, key, None)
+                if not classification:
+                    self.logger.error("Config and Premise_config not corresponds")
+                    return
+                if "error" in classification:
+                    for k, v in classification["error"]["parameter"].items():
+                        if k in classification["error"]["result"]:
+                            self.request_api(k, v, classification["error"]["result"][k], processing=False)
+                if "correct" in classification:
+                    for k, v in classification["correct"]["parameter"].items():
+                        if k in classification["correct"]["result"]:
+                            self.request_api(k, v, classification["correct"]["result"][k], processing=True)
+        else:
+            self.logger.error("Premise_config not module")
+            return
 
     def run(self):
         self.process()

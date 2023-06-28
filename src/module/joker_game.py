@@ -3,6 +3,7 @@ import random
 
 from .base import BaseService
 from src.libs.decorator_result import format_validation
+from .user import User
 
 logging.config.fileConfig('logging.conf')
 
@@ -67,33 +68,46 @@ class Joker(BaseService):
             self.over = True
             self.joker_play()
 
-    def handle_item(self):
-        if not self.item_instanceid({"item_id": 1113005}):
-            self.add_item({"item_id": 1113005, "number": 1})
-            self.item_instanceid({"item_id": 1113005})
-            if not getattr(self, "instance_id"):
-                self.logger.error("add_item and item_instanceid error!")
-                return False
-        self.data.update({"instance_id": self.instance_id})
-        return True
-
     @format_validation
     def request_api(self, *args, **kwargs):
         ok = kwargs.get("processing", False)
         if ok:
             data = kwargs.get("result", {})
-            if "instance_id" in data and data["instance_id"] != "":
-                setattr(self, "instance_id", data["instance_id"])
-                return
             self.game_data.update(data)
 
     def process(self):
-        for k, v in self.error["parameter"].items():
-            if k in self.error["result"]:
-                self.request_api(k, v, self.error["result"][k], processing=False)
-        if not self.handle_item():
+        if self.condition:
+            for key, condition in self.condition.items():
+                self.user = User()
+                if condition:
+                    if "user" in condition:
+                        self.user.update(condition["user"])
+                        self.data = self.user.user_data
+                    if "system_open" in condition:
+                        self.user.handle_system_open(condition["system_open"])
+                    if "add_item" in condition:
+                        instance_id = self.user.add_item(condition["add_item"])
+                        if instance_id != "":
+                            self.data.update({"instance_id": instance_id})
+                    # TODO:其它的初始条件
+                classification = getattr(self, key, None)
+                if not classification:
+                    self.logger.error("Config and Premise_config not corresponds")
+                    return
+                instance_id = self.data["instance_id"]
+                self.data["instance_id"] = ""
+                if "error" in classification:
+                    for k, v in classification["error"]["parameter"].items():
+                        if k in classification["error"]["result"]:
+                            self.request_api(k, v, classification["error"]["result"][k], processing=False)
+                self.data["instance_id"] = instance_id
+                if "correct" in classification:
+                    setattr(self, "correct", classification["correct"])
+                    for k, v in classification["correct"]["parameter"].items():
+                        if k in classification["correct"]["result"]:
+                            self.request_api(k, v, classification["correct"]["result"][k], processing=True)
+        else:
+            self.logger.error("Premise_config not module")
             return
-        for k, v in self.correct["parameter"].items():
-            if k in self.correct["result"]:
-                self.request_api(k, v, self.correct["result"][k], processing=True)
+
         self.joker_loop()

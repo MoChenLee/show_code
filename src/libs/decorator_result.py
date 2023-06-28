@@ -48,6 +48,13 @@ def format_validation(func):
                     if type(result[key]).__name__ != value:
                         self.logger.error("{} {}_{}_{} not as expected {}".format(args[0], k, key, result[key], value))
                         return
+                    if value == "list" and "extra_dict" in args[2] and key in args[2]["extra_dict"]:
+                        if len(result[key]) != args[2]["extra_dict"][key]:
+                            self.logger.error(
+                                "{} {}_{}_{} len not as expected {}".format(args[0], "extra_dict", key, result[key],
+                                                                            args[2]["extra_dict"][key]))
+                            return
+
         return func(self, *args, **kwargs, result=result)
 
     return wrap
