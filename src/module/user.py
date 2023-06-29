@@ -64,7 +64,7 @@ class User():
                     time.sleep(60)
 
     def add_item(self, param):
-        item = Item(item_id=param["item_id"], mid=self.mid)
+        item = Item(item_id=param["item_id"], mid=self.mid, source=param.get("source", "test"))
         ok, instance_id = item.item_instanceid()
         if not ok:
             item.add_item({"number": param.get("number", 1)})

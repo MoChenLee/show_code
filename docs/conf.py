@@ -2,7 +2,8 @@ Premise_config = {
     "Joker": {
         "config_1": {"user": {"mid": "82466", "app_id": 703},
                      "system_open": {"system_name": "joker_game"},
-                     "add_item": {"item_id": 1113005}}
+                     "add_item": {"item_id": 1113005, "number": 1, "source": "test"}
+                     }
     }
 }
 
